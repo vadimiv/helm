@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    checksum/config: {{ print .Values.priority | sha256sum }}
+  name: balancer
+
+spec:
+  selector:
+    matchLabels:
+      app: balancer
+  replicas: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      labels:
+        app: balancer
+    spec:
+      containers:
+        - name: balancer
+          image: {{ .Values.container.image }}
+          volumeMounts:
+          - name: hvolume
+            mountPath: /usr/local/etc/haproxy/haproxy.cfg
+            subPath: haproxy.cfg
+          securityContext:
+            runAsUser: 0
+      volumes:
+        - name: hvolume
+          configMap:
+            name: hconfig

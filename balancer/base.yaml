@@ -1,0 +1,59 @@
+container:
+  image: haproxy:2.0.13-alpine
+
+dns:
+  ns1: **.**.**.**:53
+  ns2: **.**.**.**:53
+  ns3: **.**.**.**:53
+
+config: |
+  global
+    maxconn 1024
+    stats socket /var/run/api.sock user root group root mode 660 level admin expose-fd listeners
+    log stdout format raw local0 info
+  defaults
+    option httplog
+    mode http
+    log global
+    timeout client 10s
+    timeout connect 5s
+    timeout server 60s
+    timeout http-request 10s
+  resolvers dns
+    nameserver ns1 {{ .Values.dns.ns1 }}
+    nameserver ns2 {{ .Values.dns.ns2 }}
+    nameserver ns3 {{ .Values.dns.ns3 }}
+  frontend stats
+    bind *:90
+    stats enable
+    stats uri /
+    stats refresh 10s
+  frontend default
+    log stdout format raw local0 debug
+    bind *:80
+    mode http
+    option forwardfor if-none
+    acl header_present hdr(x-location) -i {{ .Values.location_header }}
+    use_backend **** if header_present
+    default_backend default
+  backend default
+    mode http
+    balance roundrobin
+    option forwardfor
+    http-request set-header Host {{ .Values.proxy_source }}{{ .Values.base_url }}
+    server green {{ .Values.proxy_source }}{{ .Values.base_url }}:80 check resolvers dns weight {{ .Values.priority.green }}
+    {{- $pr := .Values.priority.green }}
+    {{- range $srv := .Values.servers }}
+    server {{ $srv }} {{ $srv }}:80 weight {{ $pr }} check
+    {{- end }}
+    server blue {{ .Values.proxy_source }}{{ .Values.base_url }}:80 check resolvers dns weight {{ .Values.priority.blue }}
+    {{- $pr := .Values.priority.blue }}
+    {{- range $srv := .Values.servers }}
+    server {{ $srv }} {{ $srv }}:80 weight {{ $pr }} check
+    {{- end }}
+
+  backend ****
+    mode http
+    http-request set-header Host {{ .Values.proxy_source }}{{ .Values.base_url }}
+    option forwardfor
+    server **** {{ .Values.proxy_source }}{{ .Values.base_url }}:80 check resolvers dns

@@ -1,0 +1,15 @@
+replicaCount: 3
+
+base_url: ingress.com
+
+priority:
+    blue: 10
+    green: 0
+
+servers:
+  - app-blue-app01.com
+  - app-blue-app02.com
+
+location_header: empty_field
+
+proxy_source: blue.
